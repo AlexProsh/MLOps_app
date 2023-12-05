@@ -1,0 +1,1247 @@
+﻿// Staya Widget helper...
+var SWH = {};
+
+SWH.TPL = function (tpl,dict) {
+    if(typeof tpl == "undefined")
+        return '';
+  return tpl.replace(
+    /\{([\w-]+)\}/g,
+    function(str,key){
+      return dict[key]||(typeof(dict[key])=='number'?0:'');
+    }
+  );
+}
+
+SWH.copy = function(src) {
+    return JSON.parse(JSON.stringify(src));
+}
+
+SWH.trim = function(str) {
+    return str.replace(/^\s\s*/, '').replace(/\s\s*$/, '');
+}
+
+SWH.CP = function(dst,src,def)
+{
+    var o = SWH.copy(src);
+    for(var i in src) dst[i]=o[i];
+    return dst;
+}
+
+if(!Function.prototype.bind)
+Function.prototype.bind=function(scope)
+{
+    var fn=this;
+    if(arguments.length<2){
+        return function(){
+            return fn.apply(scope, arguments);
+        };
+    }else{
+        var args=Array.prototype.slice.call(arguments,1);
+        return function(){
+            return fn.apply(scope, args.concat(Array.prototype.slice.call(arguments,0)));
+        };
+    }
+};
+
+SWH.JS_CLASS = function(superclass, overrides)
+{
+    var subclass, F, supp, subp, i, s, d;
+
+    // normalize params
+    i=superclass instanceof Function;
+    overrides=overrides || !i && superclass || {};
+    superclass=i && superclass || null;
+
+    // find subclass constructor
+    if(overrides.constructor!=Object.prototype.constructor)
+        subclass=overrides.constructor, delete overrides.constructor;
+    else if(superclass)
+        subclass=function(){ arguments.callee.SWH_SUPER.apply(this,arguments); };
+    else
+        subclass=function(){};
+
+    if(!superclass){
+        subclass.prototype=overrides;
+    }else{
+        // prototyping
+        F=function(){};
+        supp=F.prototype=superclass.prototype;
+        subp=subclass.prototype=new F();
+        subp.constructor=subclass;
+        subclass.SWH_SUPER=superclass;
+
+        if(supp.constructor==Object.prototype.constructor)
+            supp.constructor=superclass;
+
+        for(i in overrides){
+            s=overrides[i], d=subp[i];
+            if(s instanceof Function && d instanceof Function)
+                s.SWH_SUPER=d;
+            subp[i]=s;
+        }
+    }
+
+    return this.constructor==arguments.callee ? new subclass() : subclass;
+}
+
+function SWH_SUPER(scope,args)
+{
+    var fn=args.callee.SWH_SUPER;
+    if(arguments.length>2)
+        args=Array.prototype.slice.call(arguments,2);
+    return fn && fn.apply(scope,args);
+}
+
+SWH.E = function(el)
+{
+    if (typeof el == 'string') {
+        if (el.charAt(0) == '.') {
+            return DOMQUERY.down(document.body, el);
+        }
+        else {
+            return document.getElementById(el);
+        }
+    }
+    else {
+        return (el||null);
+    }
+};
+
+
+SWH.WidgetProto = SWH.JS_CLASS({
+  
+  remoteWorkText: 'удаленно',
+
+  init: function () {
+    
+    
+
+     if (parseInt(StayaWidgetParams.borderthickness) == 3) {
+        StayaWidgetParams.cornerWtop = 3;
+        StayaWidgetParams.cornerWbottom = -4;
+      }
+      else
+      if (parseInt(StayaWidgetParams.borderthickness) == 2) {
+        StayaWidgetParams.cornerWtop = 3;
+        StayaWidgetParams.cornerWbottom = -4;
+      }
+      else {
+        StayaWidgetParams.cornerWtop = 1;
+        StayaWidgetParams.cornerWbottom = -2;
+      }
+
+    if (StayaWidgetParams.cell_width=='auto' ||
+      (StayaWidgetParams.cell_width.indexOf && StayaWidgetParams.cell_width.indexOf('%') >= 0)) {
+      StayaWidgetParams.cell_width2 = StayaWidgetParams.cell_width;
+    }
+    else {
+      StayaWidgetParams.cell_width2 = StayaWidgetParams.cell_width - 2 * parseInt(StayaWidgetParams.borderthickness) + 'px';
+      StayaWidgetParams.cell_width = StayaWidgetParams.cell_width  + 'px';
+    }
+
+    if (StayaWidgetParams.cell_height=='auto' ||
+      (StayaWidgetParams.cell_height.indexOf && StayaWidgetParams.cell_height.indexOf('%') >= 0))  {
+      StayaWidgetParams.cell_height2 = StayaWidgetParams.cell_height;
+    }
+    else {
+      StayaWidgetParams.cell_height2 = StayaWidgetParams.cell_height - 2 * parseInt(StayaWidgetParams.borderthickness) + 'px';
+      StayaWidgetParams.cell_height = StayaWidgetParams.cell_height + 'px';
+    }
+
+    if (StayaWidgetParams.borderthickness && parseInt(StayaWidgetParams.borderthickness) > 2) {
+        StayaWidgetParams.borderthickness = '2px';
+    }
+
+    if (StayaWidgetParams.border == 'false') {
+      StayaWidgetParams.border = false;
+    }
+
+    if (!StayaWidgetParams.border) {
+        StayaWidgetParams.borderthickness = 0;
+    }
+
+    if (StayaWidgetParams.verticalWidget == true || StayaWidgetParams.verticalWidget == 'true') {
+        StayaWidgetParams.verticalWidget = true;
+    }
+    else {
+        StayaWidgetParams.verticalWidget = false;
+        if (StayaWidgetParams.cell_h_width) {
+          StayaWidgetParams.cell_width =  StayaWidgetParams.cell_h_width;
+          if (StayaWidgetParams.cell_width.indexOf && StayaWidgetParams.cell_width != 'auto' && StayaWidgetParams.cell_width.indexOf('%') == -1) {
+            StayaWidgetParams.cell_width = StayaWidgetParams.cell_width + 'px';
+          }
+        }
+    }
+
+    StayaWidgetParams.cellDividerStyle = 'display:none';
+    if (StayaWidgetParams.cell_divider_color && StayaWidgetParams.cell_divider_thickness) {
+        var borderStyle = StayaWidgetParams.verticalWidget ? 'border-bottom' : 'border-right';
+        StayaWidgetParams.cellDividerStyle = 'box-sizing: border-box; ' + borderStyle + ': solid ' + StayaWidgetParams.cell_divider_thickness + ' ' + StayaWidgetParams.cell_divider_color;
+    }
+
+    /*StayaWidgetParams.hideJobButton =
+      StayaWidgetParams.hideJobButton == true
+      || StayaWidgetParams.hideJobButton == 'true';*/
+
+    StayaWidgetParams.jobButtonStyle = StayaWidgetParams.hideJobButton
+      ? "display: none"
+      : "";
+
+    var self = this;
+    xdLocalStorage.init(
+        {
+            iframeUrl: StayaWidgetParams.iframeUrl,
+            initCallback: function () {
+                self.getLastProfAreas();
+            }
+        }
+    );
+  },
+
+  getLastProfAreas: function () {
+      clearInterval(this.getDataWithoutProfAreasInt);
+      var self = this;
+      try {
+
+        xdLocalStorage.getItem('last-selected-prof-areas', function (data) {
+            self.lastProfAreas = data.value;
+            xdLocalStorage.getItem('last-viewed-jobs', function (data) {
+                self.lastViewedJobs = data.value;
+                xdLocalStorage.getItem('jobs-with-feedback', function (data) {
+                  self.jobsWithFeedback = data.value;
+                  self.getData();
+                })
+            });
+
+        });
+      }
+      catch (e) {
+        this.getData();
+      }
+  },
+
+  jsonpData: null,
+
+  getDataWithoutProfAreas: function () {
+    this.getData();
+  },
+
+  getData: function (lastProfAreas) {
+
+    var siteUrl = StayaWidgetIncomeParams.path ? '//'+StayaWidgetIncomeParams.path : StayaWidgetIncomeParams.siteUrl;
+
+
+    var api = siteUrl+"/dapi/widget?offset=0&limit=" + StayaWidgetParams.numvac +
+      "&order_by=date_update&direction=desc&locale=" + StayaWidgetParams.locale + (StayaWidgetParams.placeid ? '&placeid=' + StayaWidgetParams.placeid : '');
+
+    {
+      var metaText = '';
+      var metas = document.getElementsByTagName('meta');
+
+      for (var i=0; i < metas.length; i++) {
+        var name = metas[i].getAttribute("name");
+        if (!name)
+          name = metas[i].getAttribute("property");
+
+        if (name == "keywords"
+          || name == "description"
+          || name == "og:title"
+          || name == "og:description"
+        )
+        {
+          if (metaText != '')
+            metaText += ' ';
+
+          metaText += metas[i].getAttribute("content");
+        }
+      }
+
+      if (!!metaText)
+        api += '&meta=' + encodeURIComponent(SWH.trim(metaText));
+    }
+
+    api += '&title=' + encodeURIComponent(SWH.trim(document.title));
+
+    /*if (this.lastProfAreas) {
+      var lastProfAreasArray = JSON.parse(this.lastProfAreas);
+      api += '&lastprofareas=' + lastProfAreasArray.join();
+      api += '&prof_areas=' + lastProfAreasArray.slice(0, 3).join();
+    }
+
+    if (this.lastViewedJobs) {
+      api += '&lastviewedjobs=' + JSON.parse(this.lastViewedJobs).join();
+    }
+
+    if (this.jobsWithFeedback) {
+      api += '&jobswithfeedback=' + JSON.parse(this.jobsWithFeedback).join();
+    }*/
+
+    var script = document.createElement('script');
+    script.src = api +'&r='+Math.random();
+
+    document.body.appendChild(script);
+
+  },
+
+  prepareFieldsforListing: function(list) {
+      for (var i=0; i < list.length; i++) {
+          var v = list[i];
+          if (!v.salary_from) {
+              v.salary_undefined = true;
+          }
+          v.cityForListing =  (v.city && v.city.name) ? v.city.name +  (v.city.region ? ', ' + v.city.region : '') : StayaWidgetParams.remoteWorkText;
+      }
+      if (list.length) {
+          list[list.length - 1].lastItem = true;
+      }
+  },
+
+  jsonp_callback: function(data) {
+      this.stayaJsonpData = data;
+      this.prepareFieldsforListing(data.list || []);
+      SWH.listController = new SWH.ListController();
+  }
+
+})
+
+var DOMQUERY={};
+
+DOMQUERY.select = function(root, selector, one)
+{
+    root = root || document;
+    if (one)
+        return root.querySelector(selector);
+
+    var ar=[], col=root.querySelectorAll(selector);
+    for (var i=0, n=col.length; i<n; i++)
+        ar[i]=col[i];
+    return ar;
+};
+
+DOMQUERY.down = function(node, selector){ return DOMQUERY.select(node, selector, true) };
+
+DOMQUERY.up = function(node, selector)
+{
+    if(!node) return null;
+
+    var s1, p = node;
+
+    switch (selector.charAt(0)) {
+    case '#':
+        s1 = selector.slice(1);
+        while ((p=p.parentNode))
+            if (p.id == s1) return p;
+        break;
+    case '.':
+        s1 = ' ' + selector.slice(1) + ' ';
+        while ((p=p.parentNode))
+            if ((' ' + p.className + ' ').indexOf(s1) != -1) return p;
+        break;
+    default:
+        while ((p=p.parentNode))
+            if (p.nodeName.toLowerCase() === selector) return p;
+    }
+    return null;
+
+};
+
+SWH.ListController = SWH.JS_CLASS({
+
+    vacancies: null,
+    verticalWidget: false,
+
+
+hTpl: '<a id="{vacCellId}" href="//{path}/job/{vacancy_id}?utm_source={path}&utm_campaign=staya_widget&utm_medium=display" target="_blank" onclick="SWH.listController.handleOpenVacancyClick({vacancy_id})" class=" b-widget-tile stayaWidget__cell_height stayaWidget__border" style=" width: {cell_width};">\
+    <div class="stayaWidget__cell_height b-widget-h-tile__wrap">\
+      <div class="b-widget-tile__company">\
+        <div class="g-pad-l-0" style="max-width: {cell_width};">\
+            <span class="b-widget-tile__company__text m-text-color1 g-pad-l-0" style="color: {text_body_color};">\
+               {vacancy_user_name}\
+            </span>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__position_title" >\
+        <div id="{vacancyTopicHId}" class="b-widget-tile__position_title_text" style="max-width: {cell_width};">\
+          {vacancy_topic}\
+        </div>\
+      </div>\
+      <div class="b-vac-tile__position_tags g-w-100"  >\
+        <div class="b-table-row-mobile__tags">\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};" >\
+            {cityForListing}\
+          </div>\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};">\
+            {job_type}\
+          </div>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__income" style="{vacancy_salary_from_display}; max-width: {cell_width};" >\
+        <span style=" "><span class="b-widget-tile__income__label-text">{incomeText}:</span> {vacancy_salary_from} <span class="b-widget-tile__income__cur">{vacancy_salary_currency_symbol}</span> </span>\
+      </div>\
+      <div class="b-vac-tile__description js-hor-widget-description" style="color: {text_body_color}; max-width: {cell_width};" >\
+        {vacancy_description_short}\
+      </div>\
+      <div class="b-vac-tile__resp-btn-wrap" >\
+        <div class="b-vac-tile__resp-btn" style="border: solid 1px {border_color}; color: {text_body_color}; " >\
+          {jobResponseText}\
+        </div>\
+      </div>\
+    </div>\
+  </a><div class="b-widget-h-divider" style="{cellDividerStyle};"></div>',
+
+vTpl: '<a id="{vacCellId}" href="//{path}/job/{vacancy_id}?utm_source={path}&utm_campaign=staya_widget&utm_medium=display" \
+target="_blank" \
+onclick="SWH.listController.handleOpenVacancyClick({vacancy_id})" \
+class=" b-widget-tile b-widget-v-tile__wrap b-widget stayaWidget__border" \
+style="width: {cell_width}; display: table-row; ">\
+      <div class="b-widget-tile__company">\
+        <div class="g-pad-l-0" style="max-width: {cell_width}; line-height: 14px; ">\
+                <span class="b-widget-tile__company__text b-widget-tile__company__text-tp m-text-color1 g-pad-l-0" style="color: {text_body_color};">\
+                   {vacancy_user_name}\
+                </span>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__position_title" >\
+        <div id="{vacancyTopicVId}" class="b-widget-tile__position_title_text b-widget-tile__position_title_text-tp" style=" max-width: {cell_width};">\
+          {vacancy_topic}\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__income" style="{vacancy_salary_from_display}; max-width: {cell_width};" >\
+        <span style=" "><span class="b-widget-tile__income__label-text">{incomeText}:</span> {vacancy_salary_from} <span class="b-widget-tile__income__cur">{vacancy_salary_currency_symbol}</span> </span>\
+      </div>\
+      <div class="b-vac-tile__position_tags g-w-100">\
+        <div class="b-table-row-mobile__tags">\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};" >\
+            {cityForListing}\
+          </div>\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};">\
+            {job_type}\
+          </div>\
+        </div>\
+      </div>\
+      <div class="b-vac-tile__description" style="color: {text_body_color}; max-width: {cell_width};" >\
+        {vacancy_description_short}\
+      </div>\
+      <div class="b-vac-tile__resp-btn-wrap" >\
+        <div class="b-vac-tile__resp-btn" style="border: solid 1px {border_color}; color: {text_body_color}; " >\
+          {jobResponseText}\
+        </div>\
+      </div>\
+      <div class="b-widget-v-divider" style="max-width: {cell_width}; {cellDividerStyle};"></div>\
+      <div class="b-widget-tile__corner" style="border-bottom-color: {border_color}; {vacancyCornerDisplay}; "; >\
+  </div>\
+  <div class="b-widget-tile__corner-w"  style="border-bottom-color: {background_color}; top: {cornerWtop}px; margin-top: -1px; {vacancyCornerDisplay}; ">\
+  </div>\
+  </a>',
+
+pageTpl: '<style>\
+  {widgetCSS}\
+  </style>\
+  <div style="display: none;" class="g-w-100 staya_job_container2"   >\
+  <div class="b-widget-table " style="{vWidgetDisplay}; width: 100%;" >\
+  <a href="//{path}/" target="_blank" onclick="SWH.listController.handleCreateVacancyClick()" class="b-widget-table__v-post-vac b-widget-table__v-post-vac-tp" style=" width: {cell_width};  " >\
+  {postJobText}\
+</a>\
+  </div>\
+  <div class="b-widget-table " style="{vWidgetDisplay}; width: {cell_width};" >\
+{vListHTML}\
+</div>\
+<div class="b-widget-table " style="{hWidgetDisplay};  position: relative; width: {cell_width}; " >\
+<a href="//{path}/" target="_blank" onclick="SWH.listController.handleCreateVacancyClick()" class="b-widget-table__h-post-vac" style=" width: {cell_width};  " >\
+  {postJobText}\
+</a>\
+</div>\
+<div class="b-widget-table " style="{hWidgetDisplay};  position: relative; " >\
+   {hListHTML}\
+  <div class="b-widget-tile__corner {cornerDisplay}" style=" border-bottom-color: {border_color}; position: absolute;bottom: 0;right: 0; " >\
+  </div>\
+  <div class="b-widget-tile__corner-w {cornerDisplay}"  style=" border-bottom-color: {background_color};   bottom: {cornerWbottom}px; right: -2px; position: absolute; margin-right: 0px;">\
+  </div>\
+</div>\
+<div ng-show="SWH.listController.errorMsg" class=" " style="display: none;" >\
+  Что то пошло не так... Мы не смогли получить данные, но Стая не бросает своих — попробуйте повторить попытку через несколько минут.\
+</div>\
+</div>',    
+
+    constructor: function () {
+
+        var self = this;
+
+        this.vacancies = SWH.Widget.stayaJsonpData.list;
+        if (this.vacancies) {
+          this.vacancies = this.vacancies.slice(0, StayaWidgetParams.numvac);
+        }
+
+        SWH.CP(this, StayaWidgetParams);
+
+        this.refresh()
+
+        SWH.E('.staya_job_container2').style.display = 'block';
+
+        this.initGA();
+
+    },
+
+    refresh: function () {
+
+        var renderParams = SWH.copy(StayaWidgetParams);
+
+        renderParams.vWidgetDisplay = StayaWidgetParams.verticalWidget ? 'display: table' :  'display: none';
+        renderParams.hWidgetDisplay = !StayaWidgetParams.verticalWidget ? 'display: table' :  'display: none';
+        renderParams.vWidgetDisplayGrid = StayaWidgetParams.verticalWidget ? 'display: grid' :  'display: none';
+        renderParams.hWidgetDisplayGrid = !StayaWidgetParams.verticalWidget ? 'display: grid' :  'display: none';
+        renderParams.cornerDisplay = StayaWidgetParams.border ? '' : 'b-staya-widget-hidden';
+
+        renderParams.vListHTML = this.getListHTML(this.vTpl);
+        renderParams.hListHTML = this.getListHTML(this.hTpl);
+
+        renderParams.widgetCSS =  SWH.TPL(SWH.cssTpl, renderParams);
+
+        if (StayaWidgetParams.container && document.getElementById(StayaWidgetParams.container)) {
+          var containerEl = document.getElementById(StayaWidgetParams.container);
+          if (!StayaWidgetParams.verticalWidget) {
+             containerEl.className += ' b-staya-widget-hor';
+          }
+          else {
+              containerEl.className += ' b-staya-widget-vert';
+          }
+          containerEl.innerHTML = SWH.TPL(this.pageTpl, renderParams);
+        }
+        else {
+          var d = document.createElement("div");
+          d.innerHTML = SWH.TPL(this.pageTpl, renderParams);
+          document.body.appendChild(d);
+        }
+        //this.startAnim();
+    },
+
+    getListHTML: function (tpl) {
+        var h = [];
+        for (var i=0; i < this.vacancies.length; i++) {
+            var v= this.vacancies[i];
+            if (v.topic === 'disabled') continue
+            var p = SWH.copy(StayaWidgetParams);
+            p.vacancyTopicVId = 'stayaWidgetItemV' + i;
+            p.vacancyTopicHId = 'stayaWidgetItemH' + i;
+
+            p.cellDividerStyle = v.lastItem ? 'display: none' : p.cellDividerStyle;
+            p.vacancy_id = v.id;
+
+            if (v.user) {
+              p.vacancy_user_name = v.user.name;
+            }
+            else {
+              p.vacancy_user_name = "company NO DATA";
+            }
+
+            p.vacancy_topic = v.topic;
+            p.cityForListing = v.cityForListing;
+			if (v.job_types != 'undefined' && v.job_types.length != 0)
+				p.job_type = v.job_types[0].name;
+			else
+				p.job_type = '';
+            p.vacancy_salary_from = v.salary_from;
+            p.vacancy_description_short = v.description_short;
+
+            p.vacancy_salary_currency_symbol = v.salary_currency.symbol;
+            p.vacancy_salary_from_display = v.salary_from ? 'display: block' : 'display: none';
+            p.vacancy_salary_undef_display = v.salary_from ? 'display: none' : 'display: block';
+            p.vacancyCornerDisplay = v.lastItem && p.border ? 'display: block' : 'display: none';
+            h.push(SWH.TPL(tpl, p));
+        }
+        return h.join('');
+    },
+
+    initGA: function () {
+        if (typeof(ga) == 'undefined') {
+            (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function() {
+              (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+              m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+              })(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+        }
+        this.initGATracker();
+        ga('stayaWidgetTracker.send', 'event', 'Widget', 'Showed', 'Showed', 1);
+    },
+
+    initGATracker: function (e) {
+      ga('create', 'UA-61115176-3', 'auto', 'stayaWidgetTracker');
+    },
+
+    handleCreateVacancyClick: function (e) {
+        if (typeof(ga) != 'undefined') {
+            this.initGATracker();
+            ga('stayaWidgetTracker.send', 'event', 'Widget', StayaWidgetParams.gaCreateVacEventName,  StayaWidgetParams.path, 1);
+        }
+    },
+
+    handleOpenVacancyClick: function (vacancy_id) {
+        if (typeof(ga) != 'undefined') {
+            this.initGATracker();
+            ga('stayaWidgetTracker.send', 'event', 'Widget', StayaWidgetParams.gaFeedbackEventName, StayaWidgetParams.gaFeedbackEventName, vacancy_id);
+        }
+    },
+
+    lowestOpacity: 35,
+    animTimout: 100,
+    animCircleCounter: 0,
+    animCircleNumRepeats: 3,
+    newCircleRepeatTimeout: 2000,
+
+    startAnim: function () {
+      this.animFrameInterval = setInterval(this.animFrame.bind(this), this.animTimout);
+    },
+
+    animFrame: function () {
+      for (var i=0; i < this.vacancies.length; i++) {
+          if (this.animState[i].animOn) {
+
+            var elV = document.getElementById('stayaWidgetItemV' + i);
+            var elH = document.getElementById('stayaWidgetItemH' + i);
+
+            if (elV && this.animState[i].animOn) {
+
+              this.animState[i].o += this.animState[i].animStep;
+              if (this.animState[i].o <= this.lowestOpacity) {
+                this.animState[i].o = this.lowestOpacity;
+                this.animState[i].animStep = -this.animState[i].animStep;
+              }
+              else if (this.animState[i].o >= 100) {
+                this.animState[i].animOn = false;
+                this.animState[i].o = 100;
+                this.animState[i].animStep = -this.animState[i].animStep;
+              }
+
+              if (this.animState[i].o < 70) {
+                if (i < this.vacancies.length - 1) {
+                    this.animState[i + 1].animOn=true;
+                  }
+                  else {
+                    this.animCircleCounter++;
+                    if (this.animCircleCounter < this.animCircleNumRepeats) {
+                      this.animState[0].animOn=true;
+                    }
+                    else {
+                      if (!this.startNewCircleTimeout) {
+                        this.startNewCircleTimeout = setTimeout(this.startNewCircle.bind(this), this.newCircleRepeatTimeout);
+                      }
+                    }
+                  }
+              }
+
+              elV.style.opacity = this.animState[i].o / 100;
+              elH.style.opacity = this.animState[i].o / 100;
+
+            }
+          }
+      }
+    },
+
+    startNewCircle: function () {
+      if (this.startNewCircleTimeout)
+          delete this.startNewCircleTimeout;
+      this.animCircleCounter = 0;
+      this.animState[0].animOn = true;
+    },
+
+});
+
+
+/**
+ * Created by dagan on 07/04/2014.
+ */
+/* global console, XdUtils */
+
+window.XdUtils = window.XdUtils || (function () {
+
+  function extend(object, defaultObject) {
+    var result = defaultObject || {};
+    var key;
+    for (key in object) {
+      if (object.hasOwnProperty(key)) {
+        result[key] = object[key];
+      }
+    }
+    return result;
+  }
+
+  //public interface
+  return {
+    extend : extend
+  };
+})();
+
+window.xdLocalStorage = window.xdLocalStorage || (function () {
+  var MESSAGE_NAMESPACE = 'cross-domain-local-message';
+  var options = {
+    iframeId: 'cross-domain-iframe',
+    iframeUrl: undefined,
+    initCallback: function () {}
+  };
+  var requestId = -1;
+  var iframe;
+  var requests = {};
+  var wasInit = false;
+  var iframeReady = true;
+
+  function applyCallback(data) {
+    if (requests[data.id]) {
+      requests[data.id](data);
+      delete requests[data.id];
+    }
+  }
+
+  function receiveMessage(event) {
+    var data;
+    try {
+      data = JSON.parse(event.data);
+    } catch (err) {
+      //not our message, can ignore
+    }
+    if (data && data.namespace === MESSAGE_NAMESPACE) {
+      if (data.id === 'iframe-ready') {
+        iframeReady = true;
+        options.initCallback();
+      } else {
+        applyCallback(data);
+      }
+    }
+  }
+
+  function buildMessage(action, key, value, callback) {
+    requestId++;
+    requests[requestId] = callback;
+    var data = {
+      namespace: MESSAGE_NAMESPACE,
+      id: requestId,
+      action: action,
+      key: key,
+      value: value
+    };
+    iframe.contentWindow.postMessage(JSON.stringify(data), '*');
+  }
+  function init(customOptions) {
+    options = XdUtils.extend(customOptions, options);
+    var temp = document.createElement('div');
+
+    if (window.addEventListener) {
+      window.addEventListener('message', receiveMessage, false);
+    } else {
+      window.attachEvent('onmessage', receiveMessage);
+    }
+
+    temp.innerHTML = '<iframe id="' + options.iframeId + '" src=' + options.iframeUrl + ' style="display: none;"></iframe>';
+    document.body.appendChild(temp);
+    iframe = document.getElementById(options.iframeId);
+  }
+
+  function isApiReady() {
+    if (!wasInit) {
+      console.log('You must call xdLocalStorage.init() before using it.');
+      return false;
+    }
+    if (!iframeReady) {
+      console.log('You must wait for iframe ready message before using the api.');
+      return false;
+    }
+    return true;
+  }
+
+  return {
+    //callback is optional for cases you use the api before window load.
+    init: function (customOptions) {
+      if (!customOptions.iframeUrl) {
+        throw 'You must specify iframeUrl';
+      }
+      if (wasInit) {
+        console.log('xdLocalStorage was already initialized!');
+        return;
+      }
+      wasInit = true;
+      /*if (document.readyState === 'complete') {
+        init(customOptions);
+      } else {
+        window.onload = function () {
+          init(customOptions);
+        };
+      }*/
+      init(customOptions);
+    },
+    setItem: function (key, value, callback) {
+      if (!isApiReady()) {
+        return;
+      }
+      buildMessage('set', key, value, callback);
+    },
+
+    getItem: function (key, callback) {
+      if (!isApiReady()) {
+        return;
+      }
+      buildMessage('get', key,  null, callback);
+    },
+    removeItem: function (key, callback) {
+      if (!isApiReady()) {
+        return;
+      }
+      buildMessage('remove', key,  null, callback);
+    },
+    key: function (index, callback) {
+      if (!isApiReady()) {
+        return;
+      }
+      buildMessage('key', index,  null, callback);
+    },
+    getSize: function(callback) {
+      if(!isApiReady()) {
+        return;
+      }
+      buildMessage('size', null, null, callback);
+    },
+    clear: function (callback) {
+      if (!isApiReady()) {
+        return;
+      }
+      buildMessage('clear', null,  null, callback);
+    },
+    wasInit: function () {
+      return wasInit;
+    }
+  };
+})();
+
+
+  var StayaWidgetDefaultPath = 'jobs.staya.vc';
+  var StayaWidgetDefault_border_color = '#ccc';
+
+  var StayaWidgetIncomeParams = {
+    siteUrl: '//' + StayaWidgetDefaultPath,
+  };
+
+      StayaWidgetIncomeParams.placeid = '12121';
+      StayaWidgetIncomeParams.path = 'jobs.techrocks.ru';
+      StayaWidgetIncomeParams.container = 'staya_jobs_container';
+      StayaWidgetIncomeParams.vertical_widget = 'false';
+      StayaWidgetIncomeParams.cell_width = '310';
+      StayaWidgetIncomeParams.cell_h_width = '325';
+      StayaWidgetIncomeParams.cell_height = '400';
+      StayaWidgetIncomeParams.locale = 'RU';
+      StayaWidgetIncomeParams.background_color = '';
+      StayaWidgetIncomeParams.base_url = 'https://jobs.techrocks.ru';
+  
+  var StayaWidgetParams = {
+  base_url: StayaWidgetIncomeParams.base_url ? StayaWidgetIncomeParams.base_url : '',
+  numvac: StayaWidgetIncomeParams.numvac ? StayaWidgetIncomeParams.numvac : 3,
+  gaFeedbackEventName: StayaWidgetIncomeParams.gaFeedbackEventName ? StayaWidgetIncomeParams.gaFeedbackEventName : 'Job clicked',
+  gaCreateVacEventName: StayaWidgetIncomeParams.gaCreateVacEventName ? StayaWidgetIncomeParams.gaCreateVacEventName : 'From widget create job clicked',
+  path: StayaWidgetIncomeParams.path ? StayaWidgetIncomeParams.path : StayaWidgetDefaultPath,
+  container: StayaWidgetIncomeParams.container ? StayaWidgetIncomeParams.container : null,
+  placeid: StayaWidgetIncomeParams.placeid ? StayaWidgetIncomeParams.placeid : null,
+  siteUrl: StayaWidgetIncomeParams.siteUrl,
+  verticalWidget: typeof(StayaWidgetIncomeParams.vertical_widget) != 'undefined' ? StayaWidgetIncomeParams.vertical_widget : true,
+  cell_width: StayaWidgetIncomeParams.cell_width ? StayaWidgetIncomeParams.cell_width : 310,
+  cell_h_width:  StayaWidgetIncomeParams.cell_h_width,
+  cell_height: StayaWidgetIncomeParams.cell_height ? StayaWidgetIncomeParams.cell_height : 400,
+  locale: StayaWidgetIncomeParams.locale ? StayaWidgetIncomeParams.locale : "RU",
+  background_color: StayaWidgetIncomeParams.background_color ? StayaWidgetIncomeParams.background_color : '#fff',
+  text_head_color: StayaWidgetIncomeParams.text_head_color ? StayaWidgetIncomeParams.text_head_color : '#3d5aa9',
+  text_body_color: StayaWidgetIncomeParams.text_body_color ? StayaWidgetIncomeParams.text_body_color : '#888',
+  border: typeof(StayaWidgetIncomeParams.border)!='undefined' ? StayaWidgetIncomeParams.border : true,
+  borderthickness: StayaWidgetIncomeParams.borderthickness ? StayaWidgetIncomeParams.borderthickness : '1px',
+  border_color: StayaWidgetIncomeParams.border_color ? StayaWidgetIncomeParams.border_color : StayaWidgetDefault_border_color,
+  cell_divider_color: StayaWidgetIncomeParams.cell_divider_color,
+  cell_divider_thickness: StayaWidgetIncomeParams.cell_divider_thickness,
+  remoteWorkText: 'удаленно',
+  postJobText: 'Разместить вакансию',
+  jobResponseText: 'Откликнуться на вакансию',
+  incomeText: 'з/п',
+  incomeIsNotDefText: 'з/п не указана',
+  iframeUrl: StayaWidgetIncomeParams.iframeUrl ? StayaWidgetIncomeParams.iframeUrl : 'https://' + StayaWidgetDefaultPath + '/localstorageiframe.php',
+  hideJobButton: StayaWidgetIncomeParams.hide_job_button ? StayaWidgetIncomeParams.hide_job_button : false,
+  };
+
+SWH.Widget = new SWH.JS_CLASS(SWH.WidgetProto, {
+
+  init: function () {
+
+    this.getDataWithoutProfAreasInt = setTimeout(this.getDataWithoutProfAreas.bind(this), 1000);
+
+    SWH_SUPER(this,arguments);
+
+  }
+  
+})
+
+SWH.ListController = SWH.JS_CLASS(SWH.ListController, {
+
+  hTpl: '<a id="{vacCellId}" href="//{path}/job/{vacancy_id}?utm_source={path}&utm_campaign=staya_widget&utm_medium=display" target="_blank" onclick="SWH.listController.handleOpenVacancyClick({vacancy_id})" class=" b-widget-tile stayaWidget__cell_height stayaWidget__border" style=" width: {cell_width};">\
+    <div class="stayaWidget__cell_height b-widget-h-tile__wrap">\
+      <div class="b-widget-tile__company">\
+        <div class="g-pad-l-0" style="max-width: {cell_width};">\
+            <span class="b-widget-tile__company__text m-text-color1 g-pad-l-0" style="color: {text_body_color};">\
+               {vacancy_user_name}\
+            </span>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__position_title" >\
+        <div id="{vacancyTopicHId}" class="b-widget-tile__position_title_text" style="max-width: {cell_width};">\
+          {vacancy_topic}\
+        </div>\
+      </div>\
+      <div class="b-vac-tile__position_tags g-w-100"  >\
+        <div class="b-table-row-mobile__tags">\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};" >\
+            {cityForListing}\
+          </div>\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};">\
+            {job_type}\
+          </div>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__income" style="{vacancy_salary_from_display}; max-width: {cell_width};" >\
+        <span style=" "><span class="b-widget-tile__income__label-text">{incomeText}:</span> {vacancy_salary_from} <span class="b-widget-tile__income__cur">{vacancy_salary_currency_symbol}</span> </span>\
+      </div>\
+      <div class="b-vac-tile__description js-hor-widget-description" style="color: {text_body_color}; max-width: {cell_width};" >\
+        {vacancy_description_short}\
+      </div>\
+      <div class="b-vac-tile__resp-btn-wrap" >\
+        <div class="b-vac-tile__resp-btn" style="border: solid 1px {border_color}; color: {text_body_color}; " >\
+          {jobResponseText}\
+        </div>\
+      </div>\
+    </div>\
+  </a><div class="b-widget-h-divider" style="{cellDividerStyle};"></div>',
+
+vTpl: '<a id="{vacCellId}" href="//{path}/job/{vacancy_id}?utm_source={path}&utm_campaign=staya_widget&utm_medium=display" \
+target="_blank" \
+onclick="SWH.listController.handleOpenVacancyClick({vacancy_id})" \
+class=" b-widget-tile b-widget-v-tile__wrap b-widget stayaWidget__border" \
+style="width: {cell_width}; display: table-row; ">\
+      <div class="b-widget-tile__company">\
+        <div class="g-pad-l-0" style="max-width: {cell_width};">\
+                <span class="b-widget-tile__company__text m-text-color1 g-pad-l-0" style="color: {text_body_color};">\
+                   {vacancy_user_name}\
+                </span>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__position_title" >\
+        <div id="{vacancyTopicVId}" class="b-widget-tile__position_title_text" style=" max-width: {cell_width};">\
+          {vacancy_topic}\
+        </div>\
+      </div>\
+      <div class="b-vac-tile__position_tags g-w-100"  >\
+        <div class="b-table-row-mobile__tags">\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};" >\
+            {cityForListing}\
+          </div>\
+          <div class="b-table-row-mobile__tags__tag m-border-color" style="border: solid 1px {border_color}; max-width: {cell_width};">\
+            {job_type}\
+          </div>\
+        </div>\
+      </div>\
+      <div class="b-widget-tile__income" style="{vacancy_salary_from_display}; max-width: {cell_width};" >\
+        <span style=" "><span class="b-widget-tile__income__label-text">{incomeText}:</span> {vacancy_salary_from} <span class="b-widget-tile__income__cur">{vacancy_salary_currency_symbol}</span> </span>\
+      </div>\
+      <div class="b-vac-tile__description" style="color: {text_body_color}; max-width: {cell_width};" >\
+        {vacancy_description_short}\
+      </div>\
+      <div class="b-vac-tile__resp-btn-wrap" >\
+        <div class="b-vac-tile__resp-btn" style="border: solid 1px {border_color}; color: {text_body_color}; " >\
+          {jobResponseText}\
+        </div>\
+      </div>\
+      <div class="b-widget-v-divider" style="max-width: {cell_width}; {cellDividerStyle};"></div>\
+      <div class="b-widget-tile__corner" style="border-bottom-color: {border_color}; {vacancyCornerDisplay}; "; >\
+  </div>\
+  <div class="b-widget-tile__corner-w"  style="border-bottom-color: {background_color}; top: {cornerWtop}px; margin-top: -1px; {vacancyCornerDisplay}; ">\
+  </div>\
+  </a>',
+
+pageTpl: '<style>\
+  {widgetCSS}\
+  </style>\
+  <div style="display: none;" class="g-w-100 staya_job_container2"   >\
+  <div class="b-widget-table " style="{vWidgetDisplay}; width: {cell_width};" >\
+  <a href="//{path}/" target="_blank" onclick="SWH.listController.handleCreateVacancyClick()" class="b-widget-table__v-post-vac" style=" width: {cell_width};  " >\
+  {postJobText}\
+</a>\
+  </div>\
+  <div class="b-widget-table " style="{vWidgetDisplay}; width: {cell_width};" >\
+{vListHTML}\
+</div>\
+<div class="b-widget-table " style="{hWidgetDisplay};  position: relative; width: {cell_width}; " >\
+<a href="//{path}/" target="_blank" onclick="SWH.listController.handleCreateVacancyClick()" class="b-widget-table__h-post-vac" style=" width: {cell_width};  " >\
+  {postJobText}\
+</a>\
+</div>\
+<div class="b-widget-table " style="{hWidgetDisplay};  position: relative; " >\
+   {hListHTML}\
+  <div class="b-widget-tile__corner {cornerDisplay}" style=" border-bottom-color: {border_color}; position: absolute;bottom: 0;right: 0; " >\
+  </div>\
+  <div class="b-widget-tile__corner-w {cornerDisplay}"  style=" border-bottom-color: {background_color};   bottom: {cornerWbottom}px; right: -2px; position: absolute; margin-right: 0px;">\
+  </div>\
+</div>\
+<div ng-show="SWH.listController.errorMsg" class=" " style="display: none;" >\
+  Что то пошло не так... Мы не смогли получить данные, но Стая не бросает своих — попробуйте повторить попытку через несколько минут.\
+</div>\
+</div>',
+
+});
+
+
+SWH.cssTpl = '\
+.b-widget-table__h-post-vac {\
+  height: 40px;\
+  line-height: 40px;\
+  padding-left: 20px;\
+}\
+.b-widget-table__v-post-vac {\
+  height: 40px;\
+  line-height: 40px;\
+  padding-left: 20px;\
+}\
+.b-staya-widget a,.b-staya-widget a:hover {\
+  color: {text_body_color}!important;\
+}\
+.b-widget-table .stayaWidget__border:first-child {\
+  border: solid {borderthickness} {border_color}!important;\
+}\
+.b-widget-table .stayaWidget__border {\
+  border: solid {borderthickness} {border_color};\
+}\
+.stayaWidget__cell_height {\
+}\
+.stayaWidget__cell_height2 {\
+}\
+.b-staya-widget-hidden {\
+  display: none;\
+}\
+.b-staya-widget a,\
+.b-staya-widget a:hover {\
+  text-decoration: none;\
+}\
+.b-staya-widget__post-btn {\
+  position: relative;\
+  display: block;\
+  height:50px;\
+  box-sizing: border-box;\
+}\
+.b-staya-widget__post-btn__text {\
+  margin: 0 auto;\
+  width: 180px;\
+  text-align: center;\
+  height: 30px;\
+  line-height: 30px;\
+  font-size:0.8em;\
+  border-style: solid;\
+  border-width: 1px;\
+  border-radius: 20px;\
+  margin-top: 20px;\
+}\
+.b-staya-widget__head {\
+  width: 100%;\
+  height:50px;\
+  line-height: 50px;\
+}\
+.b-staya-widget__head__text {\
+  float: right;\
+  font-size: 1em;\
+  height:50px;\
+  line-height: 50px;\
+}\
+.b-logo-mobile {\
+  width:100px;\
+  height:50px;\
+  margin-left: -6px;\
+  float: left;\
+  background: url(/i/logo_mobile_b.svg) no-repeat center center;\
+  background-size: 92px 29px;\
+}\
+.b-vac-list-head-mobile__all {\
+    position: absolute;\
+    left: 20px;\
+    top: 25px;\
+    text-transform: uppercase;\
+}\
+.b-vac-tile__description {\
+  width:100%;\
+  clear:left;\
+  padding: 20px;\
+  font-size: 0.9em;\
+  box-sizing: border-box;\
+  text-overflow: ellipsis;\
+  word-wrap: break-word;\
+}\
+a.b-widget-table,\
+a.b-widget-tile {\
+   text-decoration: none!important;\
+}\
+.b-widget-table {\
+  display: table;\
+  border-collapse: collapse;\
+}\
+.b-widget-tile {\
+  width: 308px;\
+  border: solid 2px #3d5aa9;\
+  display: block;\
+  box-sizing: border-box;\
+  border-collapse: collapse;\
+  display: table-cell;\
+  overflow:hidden;\
+}\
+.b-staya-widget-vert {\
+}\
+.b-staya-widget-hor {\
+  height: auto;\
+}\
+@media  screen and (max-width: 890px) {\
+  .b-staya-widget-hor {\
+    height: auto!important;\
+  }\
+ .b-widget-tile {\
+    display: block;\
+    margin: 0 auto;\
+    border-top:none!important;\
+  }\
+  .b-staya-widget-hor {\
+    width: 100%!important;\
+  }\
+  .b-staya-widget-hor .b-widget-tile__corner,\
+  .b-staya-widget-hor .b-widget-tile__corner-w {\
+    display: none;\
+  }\
+  .b-widget-table {\
+    display: block;\
+    margin: 0 auto;\
+  }\
+  .widget.posts_holder h5 {\
+    text-align: center;\
+  }\
+  .stayaWidget__cell_height,\
+  .stayaWidget__cell_height2 {\
+    height: auto;\
+  }\
+}\
+.b-widget-tile .b-table-row-mobile__corner {\
+  right: -2px;\
+  bottom: -2px;\
+}\
+.b-widget-tile .b-table-row-mobile__corner-w {\
+  right: -4px;\
+  bottom: -4px;\
+}\
+.b-widget-tile__company {\
+  width:100%;\
+  padding: 23px 20px 10px 20px;\
+  box-sizing: border-box;\
+}\
+.b-widget-tile__position_title {\
+  width:100%;\
+  clear:both;\
+  box-sizing: border-box;\
+}\
+.b-widget-tile__income {\
+  margin-top: 15px;\
+  width: 100%;\
+  box-sizing: border-box;\
+  padding: 0 20px;\
+  font-size: 1.29em;\
+  overflow: hidden;\
+  text-overflow: ellipsis;\
+  color: {text_head_color};\
+}\
+.b-widget-tile__position_title_text {\
+  color: {text_head_color};\
+  width: 100%;\
+  box-sizing: border-box;\
+  padding: 0 20px;\
+  font-size: 1.29em;\
+  overflow: hidden;\
+  text-overflow: ellipsis;\
+  line-height: 1em;\
+}\
+.b-widget-tile__name {\
+  min-height: 40px;\
+  float:left;\
+  width:180px;\
+  float:left;\
+}\
+.b-widget-tile__corner {\
+  float: right;\
+  border-bottom: 40px solid #3d5aa9;\
+  border-left: 40px solid transparent;\
+  position: relative;\
+  top: 3px;\
+}\
+.b-widget-tile__corner-w {\
+  float: right;\
+  margin-right: -44px;\
+  border-bottom: 43px solid #fff;\
+  border-left: 43px solid transparent;\
+  position: relative;\
+  top: 2px;\
+}\
+.b-table-row-mobile__tags__tag {\
+  color: {text_head_color};\
+  box-sizing: border-box;\
+  float: left;\
+  margin-right: 10px;\
+  font-size: 0.86em;\
+  line-height: 20px;\
+  padding: 0 10px;\
+  border: solid 1px red;\
+  border-radius: 15px;\
+  white-space: nowrap;\
+  max-width: 100%;\
+  overflow: hidden;\
+  text-overflow: ellipsis;\
+  margin-top: 15px;\
+  line-height: 1.6em;\
+}\
+.b-table-row-mobile__tags {\
+  margin-top: 2px;\
+  width: 100%;\
+  box-sizing:border-box;\
+  padding: 5px 20px 0 20px;\
+  overflow: hidden;\
+}\
+.b-table-row-mobile__tags__tag:last-child {\
+  margin-right: 0;\
+}\
+.b-widget-h-tile__wrap {\
+  width: {cell_width2}; position: relative;overflow:hidden;\
+}\
+.b-widget-h-divider {\
+  display: table-cell; height:100%; width: 1px; background-color: transparent;\
+}\
+.b-widget-v-tile__wrap {\
+  display: table-row;\
+}\
+.b-widget-v-divider {\
+  height: 1px; background-color: transparent;\
+}\
+.b-widget-tile__company__text {\
+  font-size: 1em;\
+}\
+.b-widget-tile__income__label-text {\
+ font-size: 0.85em; \
+}\
+.b-widget-tile__income__cur {\
+ font-size: 1em; \
+}\
+.b-vac-tile__resp-btn {\
+  width: 100%;\
+  text-transform: uppercase;\
+  font-size: 0.85em;\
+  border-radius:100px;\
+}\
+.b-vac-tile__resp-btn-wrap {\
+ padding: 0 20px;\
+ box-sizing: border-box;\
+ text-align: center;\
+ line-height: 2em;\
+ margin-bottom: 20px;\
+}\
+';
+
+SWH.Widget.init();
