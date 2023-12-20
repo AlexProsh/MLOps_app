@@ -13,8 +13,7 @@ def rolling_count(df, minutes, direction, cap=0.005):
             df["Close"]
             .rolling(minutes * 60)
             .apply(
-                lambda x: ((x / df["Average"].shift(minutes * 60)) - 1 > cap).sum()
-                / (minutes * 60)
+                lambda x: ((x / df["Average"].shift(minutes * 60)) - 1 > cap).sum() / (minutes * 60)
             )
             .shift(-minutes * 60)
         )
@@ -47,9 +46,7 @@ def make_features(ds):
     # Add Percentage Bollinger Bands
     ds["bb_bbp"] = indicator_bb.bollinger_pband()
     # Add MACD features
-    indicator_macd = MACD(
-        close=ds["Close"], window_slow=3600, window_fast=1800, window_sign=600
-    )
+    indicator_macd = MACD(close=ds["Close"], window_slow=3600, window_fast=1800, window_sign=600)
     # Add MACD divergence
     ds["macd_diverg"] = indicator_macd.macd_diff()
     # Add RSI indicator
@@ -57,15 +54,11 @@ def make_features(ds):
     # Add RSI features
     ds["rsi"] = indicator_rsi.rsi()
     # Add Williams %R indicator
-    indicator_wr = WilliamsRIndicator(
-        high=ds["High"], low=ds["Low"], close=ds["Close"], lbp=3600
-    )
+    indicator_wr = WilliamsRIndicator(high=ds["High"], low=ds["Low"], close=ds["Close"], lbp=3600)
     # Add Williams %R features
     ds["wr"] = indicator_wr.williams_r()
     # Add Percentage Volume Oscillator
-    ds["pvo"] = pvo_signal(
-        volume=ds["Volume"], window_slow=3600, window_fast=1800, window_sign=600
-    )
+    ds["pvo"] = pvo_signal(volume=ds["Volume"], window_slow=3600, window_fast=1800, window_sign=600)
     # Add price change
     ds["cl_t_open"] = ds["Close"] / ds["Open"] - 1
     ds["cl_t_high"] = ds["Close"] / ds["High"] - 1
