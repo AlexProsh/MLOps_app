@@ -1,1 +1,6 @@
 /models/
+/Infa/
+/src/prepare_dataset.ipynb
+/src/.ipynb_checkpoints/
+/src/catboost_info/
+/src/outputs/
