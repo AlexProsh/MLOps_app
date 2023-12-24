@@ -33,7 +33,7 @@ def prepare_data(data):
 def main(cfg) -> None:
     # Prepare the data
     os.chdir(hydra.utils.get_original_cwd())
-    file_path = os.path.join(cfg.paths.train_data, cfg.files.file_name)
+    file_path = os.path.join(cfg.paths.test_data, cfg.files.file_name)
     X_train, y_train = prepare_data(pd.read_parquet(file_path))
     X_test, y_test = prepare_data(pd.read_parquet(file_path))
     cat_features = ["Hour", "Minute", "Day_of_week"]
