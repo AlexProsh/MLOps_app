@@ -3,6 +3,7 @@ files:
 paths:
   train_data: ../data/prepared/train
   test_data: ../data/prepared/test
+  infer_data: ../data/prepared/infer
   model: ../models
 
 

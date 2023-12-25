@@ -4,3 +4,6 @@
 /src/.ipynb_checkpoints/
 /src/catboost_info/
 /src/outputs/
+/data
+/mlruns/
+/models

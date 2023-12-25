@@ -105,5 +105,6 @@ def main(mode):
 
 
 if __name__ == "__main__":
-    main("train")
-    main("val")
+    #main("train")
+    #main("val")
+    main("infer")
