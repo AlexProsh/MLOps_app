@@ -1,10 +1,10 @@
 files:
   file_name: AAPL.parquet
 paths:
-  train_data: ../data/prepared/train
-  test_data: ../data/prepared/test
-  infer_data: ../data/prepared/infer
-  model: ../models
+  train_data: ./data/prepared/train
+  test_data: ./data/prepared/test
+  infer_data: ./data/prepared/infer
+  model: ./models
 
 
 params:

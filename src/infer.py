@@ -43,12 +43,12 @@ def main(cfg) -> None:
         model_path = os.path.join(cfg.paths.model, f"catboost_{target}")
         model.load_model(model_path)
 
-        infer_pool = Pool(X_infer, label=y_infer[target], cat_features=cat_features)
+        infer_pool = Pool(X_infer, cat_features=cat_features)
 
         # predict
-        model.fit(train_pool, eval_set=test_pool)
-        model_path = os.path.join(cfg.paths.model, f"catboost_{target}")
-        model.save_model(model_path, format="cbm")
+        pred = model.predict(infer_pool)
+        pred_path = os.path.join(cfg.paths.infer_data, f'predict_{target}.csv')
+        pd.DataFrame(pred).to_csv(pred_path)
 
 
 if __name__ == "__main__":

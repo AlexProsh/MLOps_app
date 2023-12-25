@@ -85,7 +85,7 @@ def main(cfg) -> None:
 
 if __name__ == "__main__":
     subprocess.call(["dvc", "pull"])
-    mlflow.set_tracking_uri(uri="http://127.0.0.1:5000")
+    mlflow.set_tracking_uri(uri="http://128.0.1.1:8080")
     with mlflow.start_run():
         main()
     mlflow.end_run()
